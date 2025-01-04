@@ -35,7 +35,7 @@ async def send_startup_message(dp: Dispatcher):
     builder = InlineKeyboardBuilder()
     builder.button(text="Commands", callback_data="commands")
     builder.button(text="List files", callback_data="list_files")
-    builder.button(text="Running processes", callback_data="running_processes")
+    builder.button(text="System info", callback_data="system_info")
     builder.adjust(2)
     await bot.send_message(ADMIN_ID, "Bot started", reply_markup=builder.as_markup())
 
@@ -181,6 +181,47 @@ async def handle_callback(call: types.CallbackQuery):
                 chat_id, f"Error \- `{err}`", parse_mode="MarkdownV2"
             )
             await call.answer()
+
+@dp.callback_query(lambda c: c.data == 'commands')
+async def process_commands_callback(callback_query: types.CallbackQuery):
+    await bot.answer_callback_query(callback_query.id)
+    await bot.send_message(
+        callback_query.from_user.id, 
+        "Available Commands:\n`/start` \n`/files` \(`list 'Path'`; `get 'Path'`\)",
+        parse_mode="MarkdownV2"
+        )
+
+@dp.callback_query(lambda c: c.data == 'list_files')
+async def process_list_files_callback(callback_query: types.CallbackQuery):
+    await bot.answer_callback_query(callback_query.id)
+    builder = InlineKeyboardBuilder()
+    try:
+        entries = os.scandir(path_pc_global)
+        for entry in entries:
+            name = entry.name
+            if entry.is_dir():
+                name += " | D"
+                callback_data = f"dir_{entry.name}"
+            elif entry.is_file():
+                name += " | F"
+                callback_data = f"file_{entry.name}"
+            builder.button(text=name, callback_data=callback_data)
+
+        builder.adjust(2)
+        path = f"Path: \t`{path_pc_global}`"
+        await bot.send_message(callback_query.from_user.id,
+            path, 
+            reply_markup=builder.as_markup(), 
+            parse_mode="MarkdownV2"
+        )
+
+    except Exception as err:
+        await bot.send_message(callback_query.from_user.id, f"Error \- `{err}`", parse_mode="MarkdownV2")
+
+@dp.callback_query(lambda c: c.data == 'system_info')
+async def process_running_processes_callback(callback_query: types.CallbackQuery):
+    await bot.answer_callback_query(callback_query.id)
+    await send_system_info(callback_query.message)
 
 
 @dp.message(Command('files'))
