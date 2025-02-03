@@ -142,7 +142,7 @@ revokeClient() {
     exit 1
   fi
 
-  # ... (rest of the revokeClient function remains the same, but use $REVOKE_CLIENT instead of prompting)
+    # ... (rest of the revokeClient function remains the same, but use $REVOKE_CLIENT instead of prompting)
     cd /etc/openvpn/easy-rsa/ || return
 	./easyrsa --batch revoke "$REVOKE_CLIENT"
 	EASYRSA_CRL_DAYS=3650 ./easyrsa gen-crl
