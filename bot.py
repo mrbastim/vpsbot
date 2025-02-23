@@ -18,7 +18,7 @@ from typing import Optional
 
 from config import API_TOKEN, ADMIN_ID 
 
-DEBUG = True
+DEBUG = False
 
 logging.basicConfig(level=logging.INFO)
 
