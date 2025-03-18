@@ -1,4 +1,5 @@
 import os
+import datetime
 from config import path_pc_global
 from aiogram import Router, F
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -9,12 +10,23 @@ commands_router = Router()
 
 @commands_router.message(Command('start', 'help'))
 async def send_welcome(message: Message):
+    current_hour = datetime.datetime.now().hour
+    if current_hour < 12:
+        greeting = "Доброе утро"
+    elif current_hour < 18:
+        greeting = "Добрый день"
+    elif current_hour < 22:
+        greeting = "Добрый вечер"
+    else:
+        greeting = "Доброй ночи"
+
     builder = InlineKeyboardBuilder()
     builder.button(text="Commands", callback_data="commands")
     builder.button(text="List files", callback_data="list_files")
     builder.button(text="System info", callback_data="system_info")
+    builder.button(text="Services", callback_data="services_status")
     builder.adjust(2)
-    await message.reply("Welcome", reply_markup=builder.as_markup())
+    await message.reply(f"{greeting}, выберите действие", reply_markup=builder.as_markup())
 
 @commands_router.callback_query(F.data == "commands")
 async def echo_message(call: CallbackQuery):

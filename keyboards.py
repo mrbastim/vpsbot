@@ -15,6 +15,8 @@ def build_files_keyboard(directory: str, base_path: str, add_back: bool = False)
             builder.button(text=text, callback_data=callback_data)
         if add_back:
             builder.button(text="Back", callback_data="back")
+        else:
+            builder.button(text="Back", callback_data="back_to_main")
         builder.adjust(2)
     except Exception as err:
         raise err
@@ -33,7 +35,7 @@ def build_services_list_keyboard(services: list) -> InlineKeyboardBuilder:
     builder = InlineKeyboardBuilder()
     for service in services:
         builder.button(text=service.name, callback_data=f"service_{service.name}")
-    builder.button(text="Назад", callback_data="back")
+    builder.button(text="Назад", callback_data="back_to_main")
     builder.adjust(2)
     return builder
 

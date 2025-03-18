@@ -5,7 +5,10 @@ from aiogram.types import Message, FSInputFile, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
 from utils.system_info import send_system_info
-from keyboards import build_files_keyboard, build_services_list_keyboard, build_service_actions_keyboard
+from keyboards import (build_files_keyboard, 
+                       build_services_list_keyboard, 
+                       build_service_actions_keyboard, 
+                       build_startup_markup)
 from utils.service_manager import ServiceManager 
 
 callbacks_router = Router()
@@ -87,6 +90,13 @@ async def handle_callback(call: CallbackQuery):
                 f"Error \- `{err}`", parse_mode="MarkdownV2"
             )
             await call.answer()
+    elif data == "back_to_main":
+        builder = build_startup_markup()
+        await call.message.edit_text(
+            text="Главное меню",
+            reply_markup=builder.as_markup()
+        )
+        await call.answer()
 
 @callbacks_router.callback_query(lambda c: c.data == 'commands')
 async def process_commands_callback(callback_query: CallbackQuery):
