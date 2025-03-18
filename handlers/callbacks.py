@@ -1,31 +1,19 @@
 import os
 from config import path_pc_global
 from aiogram import Router, F
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import Message, FSInputFile, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
 from utils.system_info import send_system_info
-
+from keyboards import build_files_keyboard, build_services_list_keyboard, build_service_actions_keyboard
+from utils.service_manager import ServiceManager 
 
 callbacks_router = Router()
 
 @callbacks_router.callback_query(F.data == "list_files")
 async def listfiles_markup(call: CallbackQuery):
-    builder = InlineKeyboardBuilder()
     try:
-        entries = os.scandir(path_pc_global)
-        for entry in entries:
-            name = entry.name
-            if entry.is_dir():
-                name += " | D"
-                callback_data = f"dir_{entry.name}"
-            elif entry.is_file():
-                name += " | F"
-                callback_data = f"file_{entry.name}"
-            builder.button(text=name, callback_data=callback_data)
-
-        builder.adjust(2)
+        builder = build_files_keyboard(path_pc_global, path_pc_global)
         path = f"Path: \t`{path_pc_global}`"
         await call.message.answer(
             path, reply_markup=builder.as_markup(), parse_mode="MarkdownV2"
@@ -38,7 +26,6 @@ async def listfiles_markup(call: CallbackQuery):
 
 @callbacks_router.callback_query(lambda call: call.data.startswith(("file_", "dir_", "back")))
 async def handle_callback(call: CallbackQuery):
-    chat_id = call.message.chat.id
     data = call.data
 
     if data.startswith("file_"):
@@ -57,19 +44,7 @@ async def handle_callback(call: CallbackQuery):
         dirname = data.split("_", 1)[1]
         new_path = os.path.join(path_pc_global, dirname)
         try:
-            builder = InlineKeyboardBuilder()
-            entries = os.scandir(new_path)
-            for entry in entries:
-                name = entry.name
-                if entry.is_dir():
-                    name += " | D"
-                    callback_data = f"dir_{os.path.relpath(os.path.join(new_path, entry.name), path_pc_global)}"
-                elif entry.is_file():
-                    name += " | F"
-                    callback_data = f"file_{os.path.relpath(os.path.join(new_path, entry.name), path_pc_global)}"
-                builder.button(text=name, callback_data=callback_data)
-            builder.button(text="Back", callback_data=f"back")
-            builder.adjust(2)
+            builder = build_files_keyboard(new_path, path_pc_global, add_back=True)
             path_text = f"Path: \t`{new_path}`"
             await call.message.edit_text(
                 text=path_text,
@@ -98,20 +73,7 @@ async def handle_callback(call: CallbackQuery):
             return
 
         try:
-            builder = InlineKeyboardBuilder()
-            entries = os.scandir(parent_path)
-            for entry in entries:
-                name = entry.name
-                if entry.is_dir():
-                    name += " | D"
-                    callback_data = f"dir_{os.path.relpath(os.path.join(parent_path, entry.name), path_pc_global)}"
-                elif entry.is_file():
-                    name += " | F"
-                    callback_data = f"file_{os.path.relpath(os.path.join(parent_path, entry.name), path_pc_global)}"
-                builder.button(text=name, callback_data=callback_data)
-
-            builder.button(text="Back", callback_data=f"back")
-            builder.adjust(2)
+            builder = build_files_keyboard(parent_path, path_pc_global, add_back=True)
             path_text = f"Path: \t`{parent_path}`"
             await call.message.edit_text(
                 text=path_text,
@@ -137,20 +99,8 @@ async def process_commands_callback(callback_query: CallbackQuery):
 @callbacks_router.callback_query(lambda c: c.data == 'list_files')
 async def process_list_files_callback(callback_query: CallbackQuery):
     await callback_query.answer()
-    builder = InlineKeyboardBuilder()
     try:
-        entries = os.scandir(path_pc_global)
-        for entry in entries:
-            name = entry.name
-            if entry.is_dir():
-                name += " | D"
-                callback_data = f"dir_{entry.name}"
-            elif entry.is_file():
-                name += " | F"
-                callback_data = f"file_{entry.name}"
-            builder.button(text=name, callback_data=callback_data)
-
-        builder.adjust(2)
+        builder = build_files_keyboard(path_pc_global, path_pc_global)
         path = f"Path: \t`{path_pc_global}`"
         await callback_query.message.answer(
             path, 
@@ -166,6 +116,46 @@ async def process_list_files_callback(callback_query: CallbackQuery):
 @callbacks_router.callback_query(lambda c: c.data == 'system_info')
 async def process_running_processes_callback(callback_query: CallbackQuery):
     await send_system_info(await callback_query.message.answer("Получение информации..."))
+
+@callbacks_router.callback_query(lambda c: c.data == 'services_status')
+async def process_services_status_callback(callback_query: CallbackQuery):
+    await callback_query.answer("Получение списка сервисов...")
+    servers = await ServiceManager.get_servers()  # Получаем список сервисов
+    keyboard = build_services_list_keyboard(servers)
+    text = "Выберите сервис для управления:"
+    await callback_query.message.edit_text(text, reply_markup=keyboard.as_markup())
+
+@callbacks_router.callback_query(lambda c: c.data.startswith('service_'))
+async def process_service_detail(callback_query: CallbackQuery):
+    service_name = callback_query.data.split("service_", 1)[1]
+    manager = ServiceManager(service_name)
+    status = manager.get_status()
+    text = f"Сервис: {service_name}\nСтатус: {status}"
+    keyboard = build_service_actions_keyboard(service_name)
+    await callback_query.message.edit_text(text, reply_markup=keyboard.as_markup())
+    await callback_query.answer()
+
+@callbacks_router.callback_query(lambda c: c.data.startswith('start_'))
+async def process_start_service(callback_query: CallbackQuery):
+    service_name = callback_query.data.split("start_", 1)[1]
+    manager = ServiceManager(service_name)
+    result = manager.start_service()
+    status = manager.get_status()
+    text = f"Сервис: {service_name}\nСтатус: {status}\n\nРезультат: {result}"
+    keyboard = build_service_actions_keyboard(service_name)
+    await callback_query.message.edit_text(text, reply_markup=keyboard.as_markup())
+    await callback_query.answer(result)
+
+@callbacks_router.callback_query(lambda c: c.data.startswith('stop_'))
+async def process_stop_service(callback_query: CallbackQuery):
+    service_name = callback_query.data.split("stop_", 1)[1]
+    manager = ServiceManager(service_name)
+    result = manager.stop_service()
+    status = manager.get_status()
+    text = f"Сервис: {service_name}\nСтатус: {status}\n\nРезультат: {result}"
+    keyboard = build_service_actions_keyboard(service_name)
+    await callback_query.message.edit_text(text, reply_markup=keyboard.as_markup())
+    await callback_query.answer(result)
 
 @callbacks_router.message(F.document)
 async def handle_docs_photo(message: Message):

@@ -3,11 +3,11 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from config import API_TOKEN, ADMIN_ID
 from handlers.commands import commands_router
 from handlers.callbacks import callbacks_router
+from keyboards import build_startup_markup
 
 DEBUG = False
 
@@ -20,11 +20,7 @@ dp.include_router(callbacks_router)
 
 
 async def send_startup_message(dp: Dispatcher):
-    builder = InlineKeyboardBuilder()
-    builder.button(text="Commands", callback_data="commands")
-    builder.button(text="List files", callback_data="list_files")
-    builder.button(text="System info", callback_data="system_info")
-    builder.adjust(2)
+    builder = build_startup_markup()
     await bot.send_message(ADMIN_ID, "Bot started", reply_markup=builder.as_markup())
 
 async def on_shutdown(dispatcher: Dispatcher):
