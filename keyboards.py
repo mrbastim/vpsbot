@@ -13,11 +13,13 @@ def build_files_keyboard(directory: str, base_path: str, add_back: bool = False)
                 callback_data = f"file_{os.path.relpath(os.path.join(directory, entry.name), base_path)}"
                 text = f"{entry.name} | F"
             builder.button(text=text, callback_data=callback_data)
+        builder.adjust(2)
+
         if add_back:
             builder.button(text="Back", callback_data="back")
         else:
             builder.button(text="Back", callback_data="back_to_main")
-        builder.adjust(2)
+        builder.adjust(1)
     except Exception as err:
         raise err
     return builder
