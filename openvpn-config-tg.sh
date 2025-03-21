@@ -1,16 +1,18 @@
 #!/bin/bash
 
 usage() {
-  echo "Usage: $0 [-c <client_name>] [-p <password_option>] [-r <revoke_client_name>] [-h]"
+  echo "Usage: $0 [-c <client_name>] [-p <password_option>] [-r <revoke_client_name>] [-l <yes|no>] [-h]"
   echo "Options:"
-  echo "  -c <client_name>   Add a new client with the specified name."
+  echo "  -c <client_name>      Add a new client with the specified name."
   echo "  -p <password_option>  Password option for the new client (1 for passwordless, 2 for password-protected)."
   echo "  -r <revoke_client_name> Revoke the specified client certificate."
-  echo "  -h                  Display this help message."
+  echo "  -l <yes|no>           Enable (yes) or disable (no) local network grouping for clients."
+  echo "  -h                    Display this help message."
   exit 1
 }
 
-while getopts ":c:p:r:h" opt; do
+
+while getopts ":c:p:r:l:h" opt; do
   case $opt in
     c)
       CLIENT="$OPTARG"
@@ -20,6 +22,13 @@ while getopts ":c:p:r:h" opt; do
       ;;
     r)
       REVOKE_CLIENT="$OPTARG"
+      ;;
+    l)
+      LOCAL_NETWORK="$OPTARG"
+      if [[ "$LOCAL_NETWORK" != "yes" && "$LOCAL_NETWORK" != "no" ]]; then
+        echo "Invalid option for -l. Use 'yes' or 'no'." >&2
+        usage
+      fi
       ;;
     h)
       usage
@@ -71,7 +80,6 @@ newClient() {
   fi
 
 
-    # ... (rest of the newClient function - generating the .ovpn file - remains the same)
   	# Home directory of the user, where the client configuration will be written
 	if [ -e "/home/${CLIENT}" ]; then
 		# if $1 is a user name
@@ -125,6 +133,16 @@ newClient() {
 			;;
 		esac
 	} >>"$homeDir/$CLIENT.ovpn"
+
+    # Если включено объединение в локальную сеть, добавляем дополнительные настройки.
+  if [[ "$LOCAL_NETWORK" == "yes" ]]; then
+    {
+      echo ""
+      echo "# Local network grouping enabled"
+      echo "# Example: Adding route for clients to access the VPN subnet"
+      echo "route 10.8.0.0 255.255.255.0"
+    } >>"$homeDir/$CLIENT.ovpn"
+  fi
 
 	echo ""
 	echo "The configuration file has been written to $homeDir/$CLIENT.ovpn."
