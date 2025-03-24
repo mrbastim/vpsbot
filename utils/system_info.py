@@ -3,6 +3,7 @@ import psutil
 from psutil._common import bytes2human
 from aiogram.types import Message
 from aiogram.enums import ParseMode
+from keyboards import sysinfo_menu
 
 async def disk_usage():
     templ = "%-17s %8s %8s %8s %5s%% %9s  %s\n"
@@ -36,6 +37,7 @@ RAM Usage: {ram_percent}%
         disk_percent = await disk_usage()
         delimiter = '+' + '-'*40 + '+'
         await message.edit_text(text=f"<pre>{delimiter}\n{system_info}{delimiter}\n{disk_percent}{delimiter}</pre>",
-                                    parse_mode=ParseMode.HTML)
+                                    parse_mode=ParseMode.HTML,
+                                    reply_markup=sysinfo_menu)
     except Exception as e:
         await message.reply(f"Error \- `{e}`", parse_mode="MarkdownV2")

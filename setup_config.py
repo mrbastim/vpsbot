@@ -4,7 +4,7 @@ import os
 config_file = "config.py"
 
 if os.path.exists(config_file):
-    print(f"Config file '{config_file}' already exists.")
+    print(f"файл config '{config_file}' уже существует.")
     exit(0)
 
 print("Настройка проекта: создание файла config.py")

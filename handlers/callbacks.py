@@ -8,7 +8,8 @@ from utils.system_info import send_system_info
 from keyboards import (build_files_keyboard, 
                        build_services_list_keyboard, 
                        build_service_actions_keyboard, 
-                       build_startup_markup)
+                       build_startup_markup,
+                       sysinfo_menu)
 from utils.service_manager import ServiceManager 
 
 callbacks_router = Router()
@@ -185,4 +186,6 @@ async def handle_docs_photo(message: Message):
 async def running_processes_handler(call: CallbackQuery, state: FSMContext):
     await send_system_info(await call.message.answer("Получение информации..."))
 
-
+@callbacks_router.callback_query(F.data == "refresh_sysinfo")
+async def refresh_sysinfo_handler(call: CallbackQuery):
+    await send_system_info(await call.message.edit_text("Получение информации..."))
