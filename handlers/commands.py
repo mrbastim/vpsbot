@@ -1,5 +1,6 @@
 import os
 import datetime
+import subprocess
 from config import path_pc_global
 from aiogram import Router, F
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -31,7 +32,7 @@ async def send_welcome(message: Message):
 @commands_router.callback_query(F.data == "commands")
 async def echo_message(call: CallbackQuery):
     await call.message.answer(
-        "Available Commands:\n`/start` \n`/files` \(`list 'Path'`; `get 'Path'`\)",
+        "Available Commands:\n`/start` \n`/files` \(`list 'Path'`; `get 'Path'`\)\n`/vpn` \(`add [client_name] [password_option]` или `revoke [client_name]`\)",
         parse_mode="MarkdownV2",
     )
     await call.answer()
@@ -68,3 +69,41 @@ async def files_handler(message: Message):
             await message.reply(f"Error \- `{err}`", parse_mode="MarkdownV2")
     else:
         await message.reply("Invalid action. Use 'list' or 'get'.", parse_mode="MarkdownV2")
+
+@commands_router.message(Command('vpn'))
+async def vpn_handler(message: Message):
+    """
+    Использование:
+      /vpn add <client_name> [password_option]
+      /vpn revoke <client_name>
+    Если password_option не указан, по умолчанию используется значение 1 (без пароля).
+    """
+    args = message.text.split()
+    if len(args) < 3:
+        await message.reply("Использование:\n Для добавления: `/vpn add <client_name> [password_option]`\n \
+                            Для отзыва: `/vpn revoke <client_name>`\n \
+                            Опция пароля для нового клиента (1 - без пароля, 2 - с паролем)", 
+                            parse_mode="MarkdownV2")
+        return
+
+    operation = args[1].lower()
+    if operation == "add":
+        client_name = args[2]
+        password_option = args[3] if len(args) >= 4 else "1"
+        cmd = ["bash", "openvpn-config-tg.sh", "-c", client_name, "-p", password_option]
+    elif operation == "revoke":
+        client_name = args[2]
+        cmd = ["bash", "openvpn-config-tg.sh", "-r", client_name]
+    else:
+        await message.reply("Неверная команда. Используйте `add` или `revoke`.", parse_mode="MarkdownV2")
+        return
+
+    try:
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        output = result.stdout + "\n" + result.stderr
+        if password_option == "1":
+            await message.reply(f"<pre>{output}</pre>", parse_mode="HTML")
+        else:
+            pass
+    except Exception as e:
+        await message.reply(f"Ошибка выполнения: {e}")
