@@ -1,10 +1,16 @@
+import os
+import sys
+if not os.path.exists('config.py'):
+    print("Предупреждение: файл config.py не найден. Запустите setup.py в корне проекта для создания файла конфигурации.")
+    sys.exit(1)
+
 import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from config import API_TOKEN, ADMIN_ID
+from config import API_TOKEN, ADMIN_IDS  # Изменили ADMIN_ID на ADMIN_IDS (список)
 from handlers.commands import commands_router
 from handlers.callbacks import callbacks_router
 from keyboards import build_startup_markup
@@ -21,12 +27,14 @@ dp.include_router(callbacks_router)
 
 async def send_startup_message(dp: Dispatcher):
     builder = build_startup_markup()
-    await bot.send_message(ADMIN_ID, "Bot started", reply_markup=builder.as_markup())
+    for admin in ADMIN_IDS:
+        await bot.send_message(admin, "Bot started", reply_markup=builder.as_markup())
 
 async def on_shutdown(dispatcher: Dispatcher):
     if not DEBUG:
         try:
-            await bot.send_message(ADMIN_ID, "Бот остановлен")
+            for admin in ADMIN_IDS:
+                await bot.send_message(admin, "Бот остановлен")
         except Exception as e:
             logging.exception("Ошибка при отправке сообщения об остановке:", exc_info=e)
     await bot.session.close()
