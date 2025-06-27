@@ -74,19 +74,28 @@ async def files_handler(message: Message):
 async def vpn_handler(message: Message):
     """
     Использование:
+      /vpn list
       /vpn add <client_name> [password_option]
       /vpn revoke <client_name>
-    Если password_option не указан, по умолчанию используется значение 1 (без пароля).
     """
     args = message.text.split()
-    if len(args) < 3:
-        await message.reply("Использование:\n Для добавления: `/vpn add <client_name> [password_option]`\n \
-                            Для отзыва: `/vpn revoke <client_name>`\n \
-                            Опция пароля для нового клиента (1 - без пароля, 2 - с паролем)", 
-                            parse_mode="MarkdownV2")
+    operation = args[1].lower() if len(args) > 1 else None
+
+    if operation == "list":
+        # вытягиваем список клиентов через внешний скрипт
+        cmd = ["bash", "d:\\Сеть\\vpsbot\\list-vpn-clients.sh"]
+        try:
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            clients = result.stdout.strip().splitlines()
+            if clients:
+                msg = "Существующие клиенты VPN:\n" + "\n".join(f"- {c}" for c in clients)
+            else:
+                msg = "Клиенты VPN не найдены."
+            await message.reply(msg)
+        except Exception as e:
+            await message.reply(f"Ошибка получения списка: {e}")
         return
 
-    operation = args[1].lower()
     if operation == "add":
         client_name = args[2]
         password_option = args[3] if len(args) >= 4 else "1"
