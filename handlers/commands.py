@@ -83,7 +83,7 @@ async def vpn_handler(message: Message):
 
     if operation == "list":
         # вытягиваем список клиентов через внешний скрипт
-        cmd = ["bash", "d:\\Сеть\\vpsbot\\list-vpn-clients.sh"]
+        cmd = ["bash", "list-vpn-clients.sh"]
         try:
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             clients = result.stdout.strip().splitlines()
