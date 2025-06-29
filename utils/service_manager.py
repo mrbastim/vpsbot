@@ -1,5 +1,6 @@
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
+
 
 @dataclass
 class Server:
@@ -44,6 +45,13 @@ class ServiceManager:
             return f"{self.service_name} stopped successfully."
         except subprocess.CalledProcessError as e:
             return f"Error stopping service: {e}"
+    def restart_service(self):
+        import subprocess
+        try:
+            subprocess.run(["systemctl", "restart", self.service_name], check=True)
+            return f"{self.service_name} restarted successfully."
+        except subprocess.CalledProcessError as e:
+            return f"Error restarting service: {e}"
 
     @classmethod
     async def get_servers(cls):

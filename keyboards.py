@@ -1,6 +1,8 @@
 import os
-from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
+
 from aiogram.types import InlineKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
+
 
 def build_files_keyboard(directory: str, base_path: str, add_back: bool = False) -> InlineKeyboardBuilder:
     builder = InlineKeyboardBuilder()
@@ -46,6 +48,7 @@ def build_service_actions_keyboard(service_name: str) -> InlineKeyboardBuilder:
     builder = InlineKeyboardBuilder()
     builder.button(text="Запустить", callback_data=f"start_{service_name}")
     builder.button(text="Остановить", callback_data=f"stop_{service_name}")
+    builder.button(text="Перезапустить", callback_data=f"restart_{service_name}")
     builder.button(text="Назад", callback_data="services_status")
     builder.adjust(2)
     return builder
@@ -58,3 +61,10 @@ sysinfo_menu = InlineKeyboardMarkup(
         ],
     ]
 )
+
+def build_add_admin_keyboard() -> InlineKeyboardBuilder:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="Добавить администратора", callback_data="add_admin")
+    builder.button(text="Назад", callback_data="back_to_main")
+    builder.adjust(2)
+    return builder

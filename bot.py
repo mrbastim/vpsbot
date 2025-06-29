@@ -1,5 +1,6 @@
 import os
 import sys
+
 if not os.path.exists('config.py'):
     print("Предупреждение: файл config.py не найден. Запустите setup.py в корне проекта для создания файла конфигурации.")
     sys.exit(1)
@@ -10,10 +11,11 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from config import API_TOKEN, ADMIN_IDS  # Изменили ADMIN_ID на ADMIN_IDS (список)
-from handlers.commands import commands_router
+from config import ADMIN_IDS, API_TOKEN
 from handlers.callbacks import callbacks_router
+from handlers.commands import commands_router
 from keyboards import build_startup_markup
+from middlewares.access import AccessMiddleware
 
 DEBUG = False
 
@@ -21,6 +23,11 @@ logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
+
+# Регистрируем middleware для проверки доступа
+dp.message.middleware(AccessMiddleware())
+dp.callback_query.middleware(AccessMiddleware())
+
 dp.include_router(commands_router)
 dp.include_router(callbacks_router)
 

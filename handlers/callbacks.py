@@ -1,16 +1,17 @@
 import os
-from config import path_pc_global
-from aiogram import Router, F
-from aiogram.types import Message, FSInputFile, CallbackQuery
-from aiogram.fsm.context import FSMContext
 
-from utils.system_info import send_system_info
-from keyboards import (build_files_keyboard, 
-                       build_services_list_keyboard, 
-                       build_service_actions_keyboard, 
-                       build_startup_markup,
+from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, FSInputFile, Message
+
+from config import path_pc_global
+from keyboards import (build_files_keyboard, build_service_actions_keyboard,
+                       build_services_list_keyboard, build_startup_markup,
                        sysinfo_menu)
-from utils.service_manager import ServiceManager 
+from utils.admin_service import AdminService
+from states import AdminStates  # импорт состояний для FSM
+from utils.service_manager import ServiceManager
+from utils.system_info import send_system_info
 
 callbacks_router = Router()
 
@@ -189,3 +190,24 @@ async def running_processes_handler(call: CallbackQuery, state: FSMContext):
 @callbacks_router.callback_query(F.data == "refresh_sysinfo")
 async def refresh_sysinfo_handler(call: CallbackQuery):
     await send_system_info(await call.message.edit_text("Получение информации..."))
+
+@callbacks_router.callback_query(F.data == "add_admin")
+async def add_admin_handler(call: CallbackQuery, state: FSMContext):
+    await call.message.answer(
+        "Введите Telegram-ID пользователя, которого хотите сделать администратором:"
+    )
+    await call.answer()
+    await state.set_state(AdminStates.waiting_for_user_id)
+
+@callbacks_router.message(AdminStates.waiting_for_user_id)
+async def process_add_admin(message: Message, state: FSMContext):
+    try:
+        user_id = int(message.text.strip())
+    except ValueError:
+        return await message.answer("❌ Неверный формат, ожидается число. Попробуйте ещё раз.")
+    svc = AdminService()
+    added = svc.add(user_id)
+    text = "✅ Пользователь добавлен в админы" if added else "ℹ️ Этот пользователь уже в списке"
+    await message.answer(text)
+    await state.clear()
+

@@ -1,11 +1,16 @@
-import os
 import datetime
+import os
 import subprocess
-from config import path_pc_global
-from aiogram import Router, F
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.types import Message, FSInputFile, CallbackQuery
+
+from aiogram import F, Router
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, FSInputFile, Message
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from services.admin_service import AdminService
+
+from config import ADMIN_IDS, path_pc_global
+from states import AdminStates
 
 commands_router = Router()
 
@@ -32,7 +37,9 @@ async def send_welcome(message: Message):
 @commands_router.callback_query(F.data == "commands")
 async def echo_message(call: CallbackQuery):
     await call.message.answer(
-        "Available Commands:\n`/start` \n`/files` \(`list 'Path'`; `get 'Path'`\)\n`/vpn` \(`add [client_name] [password_option]` или `revoke [client_name]`\)",
+        "Available Commands:\n`/start` \n`/files` \(`list 'Path'`; `get 'Path'`\)\
+            \n`/vpn` \(`add [client_name] [password_option]`, `revoke [client_name]` или `list`\)\
+            \n`/add_admin` \(`user_id`\)\n",
         parse_mode="MarkdownV2",
     )
     await call.answer()
@@ -116,3 +123,24 @@ async def vpn_handler(message: Message):
             pass
     except Exception as e:
         await message.reply(f"Ошибка выполнения: {e}")
+
+@commands_router.message(Command("add_admin"))
+async def cmd_add_admin_start(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return await message.answer("❌ У вас нет прав на добавление админов")
+    await state.set_state(AdminStates.waiting_for_user_id)
+    await message.answer("Введите Telegram-ID пользователя, которого хотите сделать администратором:")
+
+@commands_router.message(AdminStates.waiting_for_user_id)
+async def cmd_add_admin_finish(message: Message, state: FSMContext):
+    svc = AdminService()
+    try:
+        user_id = int(message.text.strip())
+    except ValueError:
+        return await message.answer("Неверный формат, ожидаю число. Попробуйте ещё раз.")
+    added = svc.add(user_id)
+    text = "✅ Пользователь добавлен в админы" if added else "ℹ️ Этот пользователь уже в списке"
+    await message.answer(text)
+    await state.clear()
+
+
