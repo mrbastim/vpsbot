@@ -7,7 +7,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, FSInputFile, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from services.admin_service import AdminService
+from utils.admin_service import AdminService
 
 from config import ADMIN_IDS, path_pc_global
 from states import AdminStates
@@ -126,7 +126,7 @@ async def vpn_handler(message: Message):
 
 @commands_router.message(Command("add_admin"))
 async def cmd_add_admin_start(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS:
+    if str(message.from_user.id) not in ADMIN_IDS:
         return await message.answer("❌ У вас нет прав на добавление админов")
     await state.set_state(AdminStates.waiting_for_user_id)
     await message.answer("Введите Telegram-ID пользователя, которого хотите сделать администратором:")

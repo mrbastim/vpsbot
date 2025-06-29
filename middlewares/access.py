@@ -1,6 +1,6 @@
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message
-from services.admin_service import AdminService
+from utils.admin_service import AdminService
 
 
 class AccessMiddleware(BaseMiddleware):

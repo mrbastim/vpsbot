@@ -1,5 +1,5 @@
 import sqlite3
-from config import path_pc_global
+from config import path_pc_global, ADMIN_IDS
 
 class AdminService:
     def __init__(self, db_path: str = None):
@@ -13,6 +13,11 @@ class AdminService:
                    user_id INTEGER PRIMARY KEY
                )
             """)
+            for admin in ADMIN_IDS:
+                conn.execute(
+                    "INSERT OR IGNORE INTO allowed_users (user_id) VALUES (?)",
+                    (int(admin),)
+                )
             conn.commit()
 
     def add(self, user_id: int) -> bool:
