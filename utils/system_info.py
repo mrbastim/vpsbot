@@ -40,4 +40,4 @@ RAM Usage: {ram_percent}%
                                     parse_mode=ParseMode.HTML,
                                     reply_markup=sysinfo_menu)
     except Exception as e:
-        await message.reply(f"Error \- `{e}`", parse_mode="MarkdownV2")
+        await message.reply(f"Error \\- `{e}`", parse_mode="MarkdownV2")

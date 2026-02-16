@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import os
 import subprocess
@@ -37,9 +38,9 @@ async def send_welcome(message: Message):
 @commands_router.callback_query(F.data == "commands")
 async def echo_message(call: CallbackQuery):
     await call.message.answer(
-        "Available Commands:\n`/start` \n`/files` \(`list 'Path'`; `get 'Path'`\)\
-            \n`/vpn` \(`add [client_name] [password_option]`, `revoke [client_name]` или `list`\)\
-            \n`/add_admin` \(`user_id`\)\n",
+        "Available Commands:\n`/start` \n`/files` \\(`list 'Path'`; `get 'Path'`\\)\
+            \n`/vpn` \\(`add [client_name] [password_option]`, `revoke [client_name]` или `list`\\)\
+            \n`/add_admin` \\(`user_id`\\)\n",
         parse_mode="MarkdownV2",
     )
     await call.answer()
@@ -59,21 +60,21 @@ async def files_handler(message: Message):
             files_list = ""
             for entry in entries:
                 file_type = "DIR" if entry.is_dir() else "FILE"
-                files_list += f"{file_type}\t\|\t`{entry.name}`\n"
+                files_list += f"{file_type}\t\\|\t`{entry.name}`\n"
             await message.reply(f"{files_list}Path: \t`{path}`", parse_mode="MarkdownV2")
 
         except Exception as err:
-            await message.reply(f"Error \- `{err}`", parse_mode="MarkdownV2")
+            await message.reply(f"Error \\- `{err}`", parse_mode="MarkdownV2")
     elif action == "get":
         if len(command) < 3:
             await message.reply("Please provide a filename to get.", parse_mode="MarkdownV2")
             return
-        filepath = os.path.join(path, command[2])
+        filepath = os.path.join(path_pc_global, command[2])
         try:
             file = FSInputFile(filepath, filename=None)
-            await message.reply_document(message.chat.id, file)
+            await message.reply_document(document=file)
         except Exception as err:
-            await message.reply(f"Error \- `{err}`", parse_mode="MarkdownV2")
+            await message.reply(f"Error \\- `{err}`", parse_mode="MarkdownV2")
     else:
         await message.reply("Invalid action. Use 'list' or 'get'.", parse_mode="MarkdownV2")
 
@@ -92,22 +93,30 @@ async def vpn_handler(message: Message):
         # вытягиваем список клиентов через внешний скрипт
         cmd = ["bash", "list-vpn-clients.sh"]
         try:
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            clients = result.stdout.strip().splitlines()
+            # result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            result = asyncio.create_subprocess_exec(*cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = await result.communicate()
+            clients = stdout.strip().splitlines()
             if clients:
                 msg = "Существующие клиенты VPN:\n" + "\n".join(f"- {c}" for c in clients)
             else:
-                msg = "Клиенты VPN не найдены."
+                msg = "Клиенты VPN не найдены." + ("\nОшибка: " + stderr if stderr else "")
             await message.reply(msg)
         except Exception as e:
             await message.reply(f"Ошибка получения списка: {e}")
         return
 
     if operation == "add":
+        if len(args) < 3:
+            await message.reply("Использование: `/vpn add <client_name> [password_option]`", parse_mode="MarkdownV2")
+            return
         client_name = args[2]
         password_option = args[3] if len(args) >= 4 else "1"
         cmd = ["bash", "openvpn-config-tg.sh", "-c", client_name, "-p", password_option]
     elif operation == "revoke":
+        if len(args) < 3:
+            await message.reply("Использование: `/vpn revoke <client_name>`", parse_mode="MarkdownV2")
+            return
         client_name = args[2]
         cmd = ["bash", "openvpn-config-tg.sh", "-r", client_name]
     else:
@@ -115,12 +124,10 @@ async def vpn_handler(message: Message):
         return
 
     try:
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        output = result.stdout + "\n" + result.stderr
-        if password_option == "1":
-            await message.reply(f"<pre>{output}</pre>", parse_mode="HTML")
-        else:
-            pass
+        result = asyncio.create_subprocess_exec(*cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        stdout, stderr = await result.communicate()
+        output = stdout + "\n" + stderr
+        await message.reply(f"<pre>{output}</pre>", parse_mode="HTML")
     except Exception as e:
         await message.reply(f"Ошибка выполнения: {e}")
 

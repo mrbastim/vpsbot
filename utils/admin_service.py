@@ -3,7 +3,7 @@ from config import path_pc_global, ADMIN_IDS
 
 class AdminService:
     def __init__(self, db_path: str = None):
-        self.db_path = db_path or f"{path_pc_global}/access.db"
+        self.db_path = db_path or "access.db"
         self._init_db()
 
     def _init_db(self):
