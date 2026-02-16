@@ -32,6 +32,7 @@ async def send_welcome(message: Message):
     builder.button(text="List files", callback_data="list_files")
     builder.button(text="System info", callback_data="system_info")
     builder.button(text="Services", callback_data="services_status")
+    builder.button(text="Docker", callback_data="docker_status")
     builder.adjust(2)
     await message.reply(f"{greeting}, выберите действие", reply_markup=builder.as_markup())
 
@@ -40,6 +41,7 @@ async def echo_message(call: CallbackQuery):
     await call.message.answer(
         "Available Commands:\n`/start` \n`/files` \\(`list 'Path'`; `get 'Path'`\\)\
             \n`/vpn` \\(`add [client_name] [password_option]`, `revoke [client_name]` или `list`\\)\
+            \n`Docker` \\- управление контейнерами через кнопку в главном меню\
             \n`/add_admin` \\(`user_id`\\)\n",
         parse_mode="MarkdownV2",
     )

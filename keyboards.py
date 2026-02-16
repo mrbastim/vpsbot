@@ -2,6 +2,7 @@ import os
 
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
+from utils.docker_manager import DockerContainer
 
 
 def build_files_keyboard(directory: str, base_path: str, add_back: bool = False) -> InlineKeyboardBuilder:
@@ -33,6 +34,7 @@ def build_startup_markup() -> InlineKeyboardBuilder:
     builder.button(text="List files", callback_data="list_files")
     builder.button(text="System info", callback_data="system_info")
     builder.button(text="Services", callback_data="services_status")  # Новая кнопка для мониторинга сервисов
+    builder.button(text="Docker", callback_data="docker_status")
     builder.adjust(2)
     return builder
 
@@ -50,6 +52,29 @@ def build_service_actions_keyboard(service_name: str) -> InlineKeyboardBuilder:
     builder.button(text="Остановить", callback_data=f"stop_{service_name}")
     builder.button(text="Перезапустить", callback_data=f"restart_{service_name}")
     builder.button(text="Назад", callback_data="services_status")
+    builder.adjust(2)
+    return builder
+
+
+def build_docker_containers_keyboard(containers: list[DockerContainer]) -> InlineKeyboardBuilder:
+    builder = InlineKeyboardBuilder()
+    for container in containers:
+        status_short = container.status[:18]
+        builder.button(
+            text=f"{container.name} | {status_short}",
+            callback_data=f"dcont_{container.id}"
+        )
+    builder.button(text="Назад", callback_data="back_to_main")
+    builder.adjust(1)
+    return builder
+
+
+def build_docker_actions_keyboard(container_id: str) -> InlineKeyboardBuilder:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="Запустить", callback_data=f"dstart_{container_id}")
+    builder.button(text="Остановить", callback_data=f"dstop_{container_id}")
+    builder.button(text="Перезапустить", callback_data=f"drestart_{container_id}")
+    builder.button(text="Назад", callback_data="docker_status")
     builder.adjust(2)
     return builder
 

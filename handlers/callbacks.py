@@ -5,11 +5,14 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, FSInputFile, Message
 
 from config import path_pc_global
-from keyboards import (build_files_keyboard, build_service_actions_keyboard,
+from keyboards import (build_docker_actions_keyboard,
+                       build_docker_containers_keyboard, build_files_keyboard,
+                       build_service_actions_keyboard,
                        build_services_list_keyboard, build_startup_markup,
                        sysinfo_menu)
 from utils.admin_service import AdminService
 from states import AdminStates  # импорт состояний для FSM
+from utils.docker_manager import DockerContainer, DockerManager
 from utils.service_manager import ServiceManager
 from utils.system_info import send_system_info
 
@@ -112,6 +115,102 @@ async def process_services_status_callback(callback_query: CallbackQuery):
     keyboard = build_services_list_keyboard(servers)
     text = "Выберите сервис для управления:"
     await callback_query.message.edit_text(text, reply_markup=keyboard.as_markup())
+
+
+def _find_container_by_prefix(containers: list[DockerContainer], prefix: str) -> DockerContainer | None:
+    for container in containers:
+        if container.id.startswith(prefix):
+            return container
+    return None
+
+
+@callbacks_router.callback_query(lambda c: c.data == 'docker_status')
+async def process_docker_status_callback(callback_query: CallbackQuery):
+    await callback_query.answer("Получение списка Docker контейнеров...")
+    manager = DockerManager()
+    containers, err = manager.get_containers(all_containers=True)
+
+    if err:
+        await callback_query.message.edit_text(f"Ошибка Docker: {err}")
+        return
+
+    if not containers:
+        await callback_query.message.edit_text("Docker контейнеры не найдены.")
+        return
+
+    keyboard = build_docker_containers_keyboard(containers)
+    await callback_query.message.edit_text("Выберите контейнер:", reply_markup=keyboard.as_markup())
+
+
+@callbacks_router.callback_query(lambda c: c.data.startswith('dcont_'))
+async def process_docker_container_detail(callback_query: CallbackQuery):
+    container_prefix = callback_query.data.split("dcont_", 1)[1]
+    manager = DockerManager()
+    containers, err = manager.get_containers(all_containers=True)
+
+    if err:
+        await callback_query.message.edit_text(f"Ошибка Docker: {err}")
+        await callback_query.answer()
+        return
+
+    container = _find_container_by_prefix(containers, container_prefix)
+    if not container:
+        await callback_query.message.edit_text("Контейнер не найден. Обновите список.")
+        await callback_query.answer()
+        return
+
+    text = f"Контейнер: {container.name}\nID: {container.id}\nСтатус: {container.status}"
+    keyboard = build_docker_actions_keyboard(container.id)
+    await callback_query.message.edit_text(text, reply_markup=keyboard.as_markup())
+    await callback_query.answer()
+
+
+@callbacks_router.callback_query(lambda c: c.data.startswith('dstart_'))
+async def process_start_container(callback_query: CallbackQuery):
+    container_id = callback_query.data.split("dstart_", 1)[1]
+    manager = DockerManager()
+    result = manager.start_container(container_id)
+    containers, err = manager.get_containers(all_containers=True)
+    container = _find_container_by_prefix(containers, container_id) if not err else None
+
+    status_text = container.status if container else "Не удалось определить"
+    name_text = container.name if container else container_id
+    text = f"Контейнер: {name_text}\nID: {container_id}\nСтатус: {status_text}\n\nРезультат: {result}"
+    keyboard = build_docker_actions_keyboard(container_id)
+    await callback_query.message.edit_text(text, reply_markup=keyboard.as_markup())
+    await callback_query.answer(result)
+
+
+@callbacks_router.callback_query(lambda c: c.data.startswith('dstop_'))
+async def process_stop_container(callback_query: CallbackQuery):
+    container_id = callback_query.data.split("dstop_", 1)[1]
+    manager = DockerManager()
+    result = manager.stop_container(container_id)
+    containers, err = manager.get_containers(all_containers=True)
+    container = _find_container_by_prefix(containers, container_id) if not err else None
+
+    status_text = container.status if container else "Не удалось определить"
+    name_text = container.name if container else container_id
+    text = f"Контейнер: {name_text}\nID: {container_id}\nСтатус: {status_text}\n\nРезультат: {result}"
+    keyboard = build_docker_actions_keyboard(container_id)
+    await callback_query.message.edit_text(text, reply_markup=keyboard.as_markup())
+    await callback_query.answer(result)
+
+
+@callbacks_router.callback_query(lambda c: c.data.startswith('drestart_'))
+async def process_restart_container(callback_query: CallbackQuery):
+    container_id = callback_query.data.split("drestart_", 1)[1]
+    manager = DockerManager()
+    result = manager.restart_container(container_id)
+    containers, err = manager.get_containers(all_containers=True)
+    container = _find_container_by_prefix(containers, container_id) if not err else None
+
+    status_text = container.status if container else "Не удалось определить"
+    name_text = container.name if container else container_id
+    text = f"Контейнер: {name_text}\nID: {container_id}\nСтатус: {status_text}\n\nРезультат: {result}"
+    keyboard = build_docker_actions_keyboard(container_id)
+    await callback_query.message.edit_text(text, reply_markup=keyboard.as_markup())
+    await callback_query.answer(result)
 
 @callbacks_router.callback_query(lambda c: c.data.startswith('service_'))
 async def process_service_detail(callback_query: CallbackQuery):
