@@ -25,6 +25,17 @@ CLIENT_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 SCRIPT_DIR = Path(__file__).resolve().parent.parent
 
 
+def _pre(text: str) -> str:
+    """Динамический текст в HTML <pre>: экранируются только < > &.
+
+    Раньше здесь был MarkdownV2 с ручным экранированием — зарезервированные
+    символы (`.`, `!`, `-`) в обычном тексте вызывали
+    `Bad Request: can't parse entities`. HTML сводит экранирование к трём
+    символам и не ломается на именах файлов.
+    """
+    return f"<pre>{html.escape(str(text), quote=False)}</pre>"
+
+
 @commands_router.message(Command("start", "help"))
 async def send_welcome(message: Message):
     hour = datetime.datetime.now().hour
@@ -59,16 +70,21 @@ async def send_welcome(message: Message):
 @commands_router.callback_query(lambda call: call.data == "commands")
 async def show_commands(call):
     await call.message.answer(
-        "Available Commands:\n"
-        "`/start` \n"
-        "`/files` \\(`list 'Path'`; `get 'Path'`\\)\n"
-        "`/vpn` \\(`add [client_name] [password_option]`, "
-        "`revoke [client_name]` или `list`\\)\n"
-        "`Docker` \\- управление контейнерами через кнопку в главном меню\n"
-        "`/add_admin` \\(`user_id`\\)\n"
-        "`/del_admin` \\(`user_id`\\)\n\n"
-        "Команды `/files`, `/vpn`, `/add_admin`, `/del_admin` доступны только админам.\n",
-        parse_mode="MarkdownV2",
+        "Доступные команды\n"
+        "\n"
+        "Общие:\n"
+        "/start или /help — главное меню\n"
+        "\n"
+        "Только для администраторов:\n"
+        "/files list [путь] — список файлов\n"
+        "/files get <путь> — скачать файл\n"
+        "/vpn list — список VPN-клиентов\n"
+        "/vpn add <клиент> [1|2] — создать VPN-клиента\n"
+        "/vpn revoke <клиент> — отозвать сертификат\n"
+        "/add_admin <user_id> — выдать права администратора\n"
+        "/del_admin <user_id> — снять права администратора\n"
+        "\n"
+        "Docker и systemd управляются кнопками главного меню."
     )
     await call.answer()
 
@@ -82,10 +98,7 @@ def _resolve(rel_path: str) -> str:
 async def files_handler(message: Message):
     command = message.text.split(maxsplit=2)
     if len(command) < 2:
-        await message.reply(
-            "Использование: `/files list [path]` или `/files get <path>`",
-            parse_mode="MarkdownV2",
-        )
+        await message.reply("Использование: /files list [путь] или /files get <путь>")
         return
 
     action = command[1]
@@ -99,7 +112,7 @@ async def files_handler(message: Message):
         try:
             entries = sorted(os.scandir(path), key=lambda e: e.name)
         except OSError as err:
-            await message.reply(f"Error \\- `{_md(str(err))}`", parse_mode="MarkdownV2")
+            await message.reply(_pre(f"Ошибка: {err}"), parse_mode="HTML")
             return
 
         lines = []
@@ -108,29 +121,20 @@ async def files_handler(message: Message):
                 kind = "DIR" if entry.is_dir() else "FILE"
             except OSError:
                 kind = "?"
-            lines.append(f"{kind}\t\\|\t`{_md(entry.name)}`")
-        listing = "\n".join(lines)
+            lines.append(f"{kind}\t{entry.name}")
+        listing = "\n".join(lines) or "(пусто)"
         if len(listing) > 3500:
             listing = listing[:3500] + "\n… (список обрезан)"
-        await message.reply(
-            f"{listing}\nPath: \t`{_md(path)}`", parse_mode="MarkdownV2"
-        )
+        await message.reply(_pre(f"{listing}\n\nPath: {path}"), parse_mode="HTML")
 
     elif action == "get":
         try:
             file = FSInputFile(path, filename=os.path.basename(path))
             await message.reply_document(document=file)
         except Exception as err:
-            await message.reply(f"Error \\- `{_md(str(err))}`", parse_mode="MarkdownV2")
+            await message.reply(_pre(f"Ошибка: {err}"), parse_mode="HTML")
     else:
-        await message.reply(
-            "Неверное действие. Используйте `list` или `get`.", parse_mode="MarkdownV2"
-        )
-
-
-def _md(text: str) -> str:
-    """Экранирование MarkdownV2 (внутри code entity нужно минимум)."""
-    return text.replace("\\", "\\\\").replace("`", "\\`")
+        await message.reply("Неверное действие. Используйте list или get.")
 
 
 @admin_router.message(Command("vpn"))
@@ -144,6 +148,9 @@ async def vpn_handler(message: Message):
     args = message.text.split()
     operation = args[1].lower() if len(args) > 1 else None
 
+    def reply(text: str) -> None:
+        return message.reply(text)
+
     if operation == "list":
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -153,41 +160,39 @@ async def vpn_handler(message: Message):
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await proc.communicate()
-            clients = stdout.strip().splitlines()
-            if proc.returncode != 0:
-                await message.reply(
-                    f"Ошибка получения списка: {stderr.decode(errors='replace').strip()}"
-                )
-            elif clients:
-                await message.reply(
-                    "Существующие клиенты VPN:\n" + "\n".join(f"- {c}" for c in clients)
-                )
-            else:
-                await message.reply("Клиенты VPN не найдены.")
         except Exception as e:
-            await message.reply(f"Ошибка получения списка: {e}")
+            await reply(f"Ошибка получения списка: {e}")
+            return
+
+        if proc.returncode != 0:
+            await reply(
+                f"Ошибка получения списка: {stderr.decode(errors='replace').strip()}"
+            )
+            return
+
+        clients = stdout.decode(errors="replace").strip().splitlines()
+        if clients:
+            await reply(
+                "Существующие клиенты VPN:\n" + "\n".join(f"- {c}" for c in clients)
+            )
+        else:
+            await reply("Клиенты VPN не найдены.")
         return
 
     if operation == "add":
         if len(args) < 3:
-            await message.reply(
-                "Использование: `/vpn add <client_name> [password_option]`",
-                parse_mode="MarkdownV2",
-            )
+            await reply("Использование: /vpn add <client_name> [1|2]")
             return
         client_name = args[2]
         password_option = args[3] if len(args) >= 4 else "1"
         if not CLIENT_NAME_RE.match(client_name):
-            await message.reply(
-                "⛔️ Имя клиента: 1–32 символа, только латиница, цифры, `_` и `-`"
-            )
+            await reply("⛔️ Имя клиента: 1–32 символа, только латиница, цифры, _ и -")
             return
         if password_option not in ("1", "2"):
-            await message.reply(
-                "⛔️ `password_option` \\- только `1` или `2`", parse_mode="MarkdownV2"
-            )
+            await reply("⛔️ password_option — только 1 или 2")
             return
         cmd = [
+            "bash",
             str(SCRIPT_DIR / "openvpn-config-tg.sh"),
             "-c",
             client_name,
@@ -196,22 +201,15 @@ async def vpn_handler(message: Message):
         ]
     elif operation == "revoke":
         if len(args) < 3:
-            await message.reply(
-                "Использование: `/vpn revoke <client_name>`", parse_mode="MarkdownV2"
-            )
+            await reply("Использование: /vpn revoke <client_name>")
             return
         client_name = args[2]
         if not CLIENT_NAME_RE.match(client_name):
-            await message.reply(
-                "⛔️ Имя клиента: 1–32 символа, только латиница, цифры, `_` и `-`"
-            )
+            await reply("⛔️ Имя клиента: 1–32 символа, только латиница, цифры, _ и -")
             return
-        cmd = [str(SCRIPT_DIR / "openvpn-config-tg.sh"), "-r", client_name]
+        cmd = ["bash", str(SCRIPT_DIR / "openvpn-config-tg.sh"), "-r", client_name]
     else:
-        await message.reply(
-            "Неверная команда. Используйте `add`, `revoke` или `list`.",
-            parse_mode="MarkdownV2",
-        )
+        await reply("Неверная команда. Используйте add, revoke или list.")
         return
 
     try:
@@ -221,14 +219,14 @@ async def vpn_handler(message: Message):
             stderr=asyncio.subprocess.PIPE,
         )
         stdout, stderr = await proc.communicate()
-        output = stdout.decode(errors="replace") + stderr.decode(errors="replace")
-        ok = proc.returncode == 0
-        prefix = "" if ok else "⚠️ Код возврата %s\n" % proc.returncode
-        await message.reply(
-            f"<pre>{html.escape(prefix + output)}</pre>", parse_mode="HTML"
-        )
     except Exception as e:
-        await message.reply(f"Ошибка выполнения: {e}")
+        await reply(f"Ошибка выполнения: {e}")
+        return
+
+    output = stdout.decode(errors="replace") + stderr.decode(errors="replace")
+    if proc.returncode != 0:
+        output = f"⚠️ Код возврата {proc.returncode}\n{output}"
+    await message.reply(_pre(output.strip() or "(пустой вывод)"), parse_mode="HTML")
 
 
 @admin_router.message(Command("add_admin"))
@@ -269,7 +267,7 @@ async def cmd_del_admin(message: Message):
         return await message.answer("❌ Недостаточно прав")
     args = message.text.split()
     if len(args) < 2:
-        return await message.answer("Использование: `/del_admin <user_id>`")
+        return await message.answer("Использование: /del_admin <user_id>")
     try:
         user_id = int(args[1])
     except ValueError:

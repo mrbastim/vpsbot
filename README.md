@@ -19,7 +19,7 @@ VPSBot — это Telegram-бот, который позволяет управ�
 - **utils/system_info.py** – сбор информации о системе (CPU, RAM, дисковое пространство).
 - **openvpn-config-tg.sh** – Bash-скрипт для управления OpenVPN клиентами (создание и отзыв сертификатов).
 - **list-vpn-clients.sh** – Bash-скрипт для вывода списка активных клиентов OpenVPN.
-- **tests_security.py**, **tests_access_control.py** – тесты безопасности и разграничения доступа.
+- **tests_security.py**, **tests_access_control.py**, **tests_keyboard.py**, **tests_formatting.py** – тесты безопасности, разграничения доступа, клавиатур и форматирования сообщений.
 - **requirements.txt** – зависимости проекта.
 
 ## Модель доступа
@@ -103,7 +103,16 @@ VPSBot — это Telegram-бот, который позволяет управ�
 ```sh
 python tests_security.py        # path traversal, роли, callback_data, валидация
 python tests_access_control.py  # проверка, что admin-хендлеры закрыты middleware
+python tests_keyboard.py        # лимит 64 байта, навигация, Back
+python tests_formatting.py      # экранирование текста (Bad Request: can't parse entities)
 ```
+
+## Форматирование сообщений
+
+Динамический текст (имена файлов, вывод команд, ошибки) отправляется как HTML
+`<pre>` с `html.escape(..., quote=False)`. MarkdownV2 не используется: там
+зарезервированные символы (`.`, `!`, `-`, `[`) в обычном тексте вызывают
+`Bad Request: can't parse entities` при любом имени файла с точкой.
 
 ## Лицензия
 

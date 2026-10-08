@@ -63,6 +63,4 @@ async def send_system_info(message: Message) -> None:
             reply_markup=sysinfo_menu,
         )
     except Exception as e:
-        await message.reply(
-            f"Error \\- `{str(e).replace('`', '')}`", parse_mode="MarkdownV2"
-        )
+        await message.reply(f"Ошибка при сборе информации: {e}")

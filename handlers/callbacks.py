@@ -2,6 +2,7 @@ import html
 import os
 
 from aiogram import F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import CallbackQuery, FSInputFile, Message
 
 from config import path_pc_global
@@ -29,9 +30,9 @@ UPLOAD_DIR = os.path.join(path_pc_global, "uploads")
 MAX_UPLOAD_SIZE = 512 * 1024 * 1024
 
 
-def _md(text: str) -> str:
-    """Экранирование MarkdownV2."""
-    return text.replace("\\", "\\\\").replace("`", "\\`")
+def _pre(text: str) -> str:
+    """Динамический текст в HTML <pre>: экранируются только < > &."""
+    return f"<pre>{html.escape(str(text), quote=False)}</pre>"
 
 
 def _resolve_callback(callback_data: str) -> str:
@@ -43,22 +44,20 @@ def _resolve_callback(callback_data: str) -> str:
 async def listfiles_markup(call: CallbackQuery):
     try:
         builder = build_files_keyboard(path_pc_global, path_pc_global)
-        text = f"Path: \t`{_md(path_pc_global)}`"
     except OSError as err:
-        await call.message.answer(
-            f"Error \\- `{_md(str(err))}`", parse_mode="MarkdownV2"
-        )
+        await call.message.answer(_pre(f"Ошибка: {err}"), parse_mode="HTML")
         await call.answer()
         return
 
+    text = _pre(f"Path: {path_pc_global}")
     try:
         await call.message.edit_text(
-            text, reply_markup=builder.as_markup(), parse_mode="MarkdownV2"
+            text, reply_markup=builder.as_markup(), parse_mode="HTML"
         )
-    except Exception:
+    except TelegramBadRequest:
         # Клавиатура была на другом сообщении — отправляем новое.
         await call.message.answer(
-            text, reply_markup=builder.as_markup(), parse_mode="MarkdownV2"
+            text, reply_markup=builder.as_markup(), parse_mode="HTML"
         )
     await call.answer()
 
@@ -66,9 +65,9 @@ async def listfiles_markup(call: CallbackQuery):
 async def _show_dir(call: CallbackQuery, path: str, add_back: bool) -> None:
     builder = build_files_keyboard(path, path_pc_global, add_back=add_back)
     await call.message.edit_text(
-        text=f"Path: \t`{_md(path)}`",
+        text=_pre(f"Path: {path}"),
         reply_markup=builder.as_markup(),
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
     )
 
 
@@ -86,9 +85,7 @@ async def handle_callback(call: CallbackQuery):
         except UnsafePathError:
             await call.message.answer("⛔️ Доступ за пределами /root запрещён")
         except Exception as err:
-            await call.message.answer(
-                f"Error \\- `{_md(str(err))}`", parse_mode="MarkdownV2"
-            )
+            await call.message.answer(_pre(f"Ошибка: {err}"), parse_mode="HTML")
         await call.answer()
         return
 
@@ -98,9 +95,7 @@ async def handle_callback(call: CallbackQuery):
         except UnsafePathError:
             await call.message.answer("⛔️ Доступ за пределами /root запрещён")
         except Exception as err:
-            await call.message.answer(
-                f"Error \\- `{_md(str(err))}`", parse_mode="MarkdownV2"
-            )
+            await call.message.answer(_pre(f"Ошибка: {err}"), parse_mode="HTML")
         await call.answer()
 
 
@@ -314,8 +309,7 @@ async def handle_document_upload(message: Message):
         filepath = safe_join(UPLOAD_DIR, name)
         await message.bot.download(document, destination=filepath)
         await message.answer(
-            f"✅ Сохранено в `{_md(UPLOAD_DIR)}`\n`{_md(filepath)}`",
-            parse_mode="MarkdownV2",
+            _pre(f"✅ Сохранено в {UPLOAD_DIR}\n{filepath}"), parse_mode="HTML"
         )
     except Exception as e:
-        await message.answer(f"Error \\- `{_md(str(e))}`", parse_mode="MarkdownV2")
+        await message.answer(_pre(f"Ошибка: {e}"), parse_mode="HTML")
