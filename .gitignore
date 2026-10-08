@@ -4,5 +4,8 @@ __pycache__/
 
 config.py
 *.db
+*.db-wal
+*.db-shm
 *.pyc
 .env
+.vscode/

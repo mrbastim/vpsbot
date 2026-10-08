@@ -102,6 +102,9 @@ newClient() {
 		TLS_SIG="1"
 	elif grep -qs "^tls-auth" /etc/openvpn/server.conf; then
 		TLS_SIG="2"
+	else
+		echo "Error: neither tls-crypt nor tls-auth is configured in /etc/openvpn/server.conf."
+		exit 1
 	fi
 
 	# Generates the custom client.ovpn
@@ -160,13 +163,18 @@ revokeClient() {
     exit 1
   fi
 
-    # ... (rest of the revokeClient function remains the same, but use $REVOKE_CLIENT instead of prompting)
-    cd /etc/openvpn/easy-rsa/ || return
+    if [[ ! "$REVOKE_CLIENT" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo "Client name must consist of alphanumeric characters, underscores, or dashes."
+    exit 1
+  fi
+
+  # Атомарная замена CRL: старый файл не удаляется, пока новый не готов.
+  cd /etc/openvpn/easy-rsa/ || return
 	./easyrsa --batch revoke "$REVOKE_CLIENT"
 	EASYRSA_CRL_DAYS=3650 ./easyrsa gen-crl
-	rm -f /etc/openvpn/crl.pem
-	cp /etc/openvpn/easy-rsa/pki/crl.pem /etc/openvpn/crl.pem
-	chmod 644 /etc/openvpn/crl.pem
+	cp /etc/openvpn/easy-rsa/pki/crl.pem /etc/openvpn/crl.pem.new
+	chmod 644 /etc/openvpn/crl.pem.new
+	mv /etc/openvpn/crl.pem.new /etc/openvpn/crl.pem
 	find /home/ -maxdepth 2 -name "$REVOKE_CLIENT.ovpn" -delete
 	rm -f "/root/vpn_configs/$REVOKE_CLIENT.ovpn"
 	sed -i "/^$REVOKE_CLIENT,.*/d" /etc/openvpn/ipp.txt
